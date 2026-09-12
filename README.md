@@ -74,14 +74,15 @@ Dokumen ini berisi panduan langkah demi langkah (*tutorial*) untuk memasang, men
    cd ~/projects/claude-telegram
    ```
 
-2. Buat lingkungan virtual Python (`venv`):
+2. Buat dan aktifkan lingkungan virtual Python (`venv`):
    ```bash
    python3 -m venv venv
+   source venv/bin/activate
    ```
 
 3. Pasang seluruh dependensi yang diperlukan:
    ```bash
-   ./venv/bin/pip install -r requirements.txt
+   pip install -r requirements.txt
    ```
 
 ---
@@ -115,7 +116,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 ### Mode Produksi Standar:
 ```bash
-./venv/bin/python bot.py
+python bot.py
 ```
 
 ### Mode Pengembangan (Auto-Restart Otomatis saat Ada Perubahan Kode):
