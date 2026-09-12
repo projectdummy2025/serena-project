@@ -97,3 +97,40 @@ def get_user_profile() -> str:
     except Exception:
         return ""
 
+def save_skill(skill_name: str, content: str, tags: list = None) -> str:
+    """
+    Save or update a dynamic Skill SOP note in Obsidian Vault (04-Skills/<skill_name>.md).
+    """
+    clean_name = skill_name.strip().lower().replace(" ", "_")
+    if not clean_name.endswith(".md"):
+        clean_name += ".md"
+    
+    skill_tags = (tags or []) + ["skill", "serena-skill"]
+    file_path = create_note("04-Skills", clean_name, content, tags=skill_tags)
+    logger.info(f"Menyimpan skill baru di Obsidian: {file_path}")
+    return f"Skill berhasil disimpan di: {file_path}"
+
+def list_skills() -> list:
+    """
+    List all available dynamic Skill SOP notes in Obsidian Vault (04-Skills).
+    """
+    skills_dir = os.path.join(config.OBSIDIAN_VAULT_DIR, "04-Skills")
+    if not os.path.exists(skills_dir):
+        return []
+    
+    skills = []
+    for f in os.listdir(skills_dir):
+        if f.endswith(".md"):
+            skills.append(f[:-3])
+    return sorted(skills)
+
+def get_skill(skill_name: str) -> str:
+    """
+    Retrieve content of a specific Skill SOP note from Obsidian Vault (04-Skills/<skill_name>.md).
+    """
+    clean_name = skill_name.strip().lower().replace(" ", "_")
+    if not clean_name.endswith(".md"):
+        clean_name += ".md"
+    return read_note("04-Skills", clean_name)
+
+

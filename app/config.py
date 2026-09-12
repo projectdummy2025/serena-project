@@ -18,8 +18,9 @@ raw_vault = os.getenv("OBSIDIAN_VAULT_DIR", "~/obsidian_vault").strip()
 OBSIDIAN_VAULT_DIR = os.path.expanduser(raw_vault)
 
 # Ensure Obsidian Vault directories exist
-for subfolder in ["00-Inbox", "01-Projects", "02-Daily-Logs", "03-Decisions"]:
+for subfolder in ["00-Inbox", "01-Projects", "02-Daily-Logs", "03-Decisions", "04-Skills"]:
     os.makedirs(os.path.join(OBSIDIAN_VAULT_DIR, subfolder), exist_ok=True)
+
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
