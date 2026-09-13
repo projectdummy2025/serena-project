@@ -1,6 +1,6 @@
 from typing import TypedDict, List, Dict, Any, Optional
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     """
     LangGraph Agent State representation for the Hierarchical Multi-Agent System.
     """
@@ -15,3 +15,6 @@ class AgentState(TypedDict):
     eval_feedback: str
     retry_count: int
     final_report: str
+    sessionTopicBuffer: List[str]
+    pendingConceptSummary: str
+
