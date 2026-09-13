@@ -52,7 +52,7 @@ async def conduct_research_task(query: str) -> str:
     1. Search web via DuckDuckGo.
     2. Read top result snippets & content.
     3. Synthesize research findings.
-    4. Save research note to Obsidian Vault (00-Inbox/Riset-<topic>.md).
+    4. Save research note to Obsidian Vault (Kotak Masuk/Riset-<topic>.md).
     5. Return research report.
     """
     search_results = search_web_ddg(query, max_results=5)
@@ -75,7 +75,7 @@ async def conduct_research_task(query: str) -> str:
     
     try:
         create_note(
-            folder="00-Inbox",
+            folder="Kotak Masuk",
             filename=filename,
             content=compiled_findings,
             tags=["riset", "web-search", "second-brain"]
