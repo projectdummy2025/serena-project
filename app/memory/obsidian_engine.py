@@ -78,14 +78,25 @@ def search_obsidian_vault(query: str, top_k: int = 3) -> str:
             storage_context=storage_context,
             embed_model=embed_model
         )
-        retriever = index.as_retriever(similarity_top_k=top_k)
+        retriever = index.as_retriever(similarity_top_k=top_k * 2)
         nodes = retriever.retrieve(query)
 
         if not nodes:
             return ""
 
+        # Prioritize Kotak Masuk, Proyek Aktif, Panduan & SOP over Catatan Harian
+        def node_sort_key(n):
+            fp = n.node.metadata.get("file_path", "").lower()
+            if "kotak masuk" in fp or "proyek aktif" in fp or "panduan" in fp:
+                return 0
+            if "profil" in fp:
+                return 1
+            return 2
+
+        sorted_nodes = sorted(nodes, key=node_sort_key)[:top_k]
+
         results = []
-        for i, node in enumerate(nodes, 1):
+        for i, node in enumerate(sorted_nodes, 1):
             full_path = node.node.metadata.get("file_path", "")
             file_name = node.node.metadata.get("file_name", "") or node.node.metadata.get("filename", "")
             
@@ -104,6 +115,7 @@ def search_obsidian_vault(query: str, top_k: int = 3) -> str:
             results.append(f"Catatan Rujukan {i} (WikiLink Target: [[{rel_path}]]):\n{text_snippet}...")
 
         return "\n\n".join(results)
+
 
     except Exception as err:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

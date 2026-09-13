@@ -19,17 +19,9 @@ def append_to_daily_log(title: str, content: str) -> str:
     os.makedirs(daily_log_dir, exist_ok=True)
     
     clean_title = title.strip() if title else "Catatan Harian"
-    clean_suffix = re.sub(r"^(Catatan Konsep:\s*|Tugas:\s*|Aktivitas:\s*|Update Konsep:\s*)", "", clean_title, flags=re.IGNORECASE)
-    clean_suffix = re.sub(r'[\\/*?:"<>|]', "", clean_suffix).strip()
-    clean_suffix = re.sub(r"\s*\(\s*\)$", "", clean_suffix).strip()
-
-    
-    if clean_suffix and clean_suffix.lower() != "catatan harian":
-        filename = f"{today_str} - {clean_suffix}.md"
-    else:
-        filename = f"{today_str}.md"
-        
+    filename = f"{today_str}.md"
     file_path = os.path.join(daily_log_dir, filename)
+
     
     entry_header = f"\n\n### [{now_time_str}] {clean_title}\n\n"
     full_entry = entry_header + content.strip() + "\n"
@@ -38,7 +30,8 @@ def append_to_daily_log(title: str, content: str) -> str:
         with open(file_path, "a", encoding="utf-8") as f:
             f.write(full_entry)
     else:
-        header_title = f"# {today_str} — {clean_title}\n"
+        header_title = f"# {today_str} — Catatan Harian\n"
+
         post = frontmatter.Post(
             content=header_title + full_entry,
             tags=["daily-log", "second-brain"],
