@@ -66,17 +66,24 @@ async def supervisor_evaluate_step(state: AgentState) -> Dict[str, Any]:
     return updates
 
 async def curate_report_step(state: AgentState) -> Dict[str, Any]:
-    """Curate final executive report & log transaction to Obsidian Daily Log."""
+    """Curate final executive report & selectively log transactions to Obsidian Daily Log."""
     prompt = state.get("user_prompt", "")
     output = state.get("worker_output", "")
     user_id = state.get("user_id", 0)
     
-    curated = await orchestrator.curate_claude_output(prompt, output, user_id=user_id)
+    curation_res = await orchestrator.curate_claude_output(prompt, output, user_id=user_id)
     
-    try:
-        append_to_daily_log(title=f"Aktivitas Telegram: {prompt[:40]}", content=curated)
-    except Exception as e:
-        logger.warning(f"Gagal mencatat ke Obsidian Daily Log: {e}")
+    is_logworthy = curation_res.get("is_logworthy", True)
+    log_title = curation_res.get("log_title", f"Aktivitas: {prompt[:30]}")
+    curated = curation_res.get("curated_text", output)
+    
+    if is_logworthy:
+        try:
+            append_to_daily_log(title=log_title, content=curated)
+        except Exception as e:
+            logger.warning(f"Gagal mencatat ke Obsidian Daily Log: {e}")
+    else:
+        logger.info(f"Mengabaikan pencatatan ke Daily Log untuk instruksi transient/keisengan: '{prompt[:30]}'")
         
     return {"final_report": curated}
 
