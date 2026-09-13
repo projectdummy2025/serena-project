@@ -222,8 +222,11 @@ def get_openai_client() -> Optional[AsyncOpenAI]:
     if _openai_client is None:
         _openai_client = AsyncOpenAI(
             api_key=config.OPENAI_API_KEY,
-            base_url=config.OPENAI_BASE_URL
+            base_url=config.OPENAI_BASE_URL,
+            max_retries=2,
+            timeout=20.0
         )
+
     return _openai_client
 
 def fallback_intent_classification(text: str) -> str:
