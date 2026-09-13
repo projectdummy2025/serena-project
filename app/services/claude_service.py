@@ -44,17 +44,20 @@ async def execute_claude_task(
             "Pastikan Claude Code telah terpasang dan dapat diakses dari terminal."
         )
 
-    target_cwd = cwd or config.WORKSPACE_DIR
+    target_cwd = cwd or config.SERENA_PROJECTS_DIR
     if not os.path.exists(target_cwd):
         os.makedirs(target_cwd, exist_ok=True)
 
     system_instructions = (
         "Aturan Persona: Jawablah dalam bahasa Indonesia dengan sopan, santun, dan profesional. "
         "DILARANG MENGGUNAKAN EMOJI SAMA SEKALI dalam balasan Anda. "
+        f"Direktori Root Agent Workspace Proyek: {config.SERENA_PROJECTS_DIR}.\n"
+        "Aturan Penempatan Berkas: Seluruh tugas koding, pembuatan berkas, dan proyek baru WAJIB ditempatkan di dalam folder proyek spesifik di bawah direktori Agent Workspace (contoh: " + config.SERENA_PROJECTS_DIR + "/<nama_proyek>/).\n"
         "Jika pengguna bertanya atau mengobrol biasa, jawablah secara langsung dan alami. "
         "Jika pengguna memberikan tugas pemrograman atau pengeditan berkas, laksanakan tugas tersebut dan berikan laporan ringkas hasilnya.\n\n"
         f"Instruksi Pengguna: {prompt}"
     )
+
     
     cmd = [cli_path, "-p", system_instructions]
     
