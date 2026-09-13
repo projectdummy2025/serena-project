@@ -35,7 +35,7 @@ SERENA_TOOLS = [
         "type": "function",
         "function": {
             "name": "save_skill",
-            "description": "Simpan atau perbarui resep/SOP keterampilan baru (Skill) di Obsidian Vault (04-Skills/<skill_name>.md).",
+            "description": "Simpan atau perbarui resep/SOP keterampilan baru (Skill) di Obsidian Vault (Panduan & SOP/<skill_name>.md).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -84,7 +84,7 @@ SERENA_TOOLS = [
         "type": "function",
         "function": {
             "name": "save_daily_log",
-            "description": "Menambahkan entri ke log harian Obsidian Vault (02-Daily-Logs).",
+            "description": "Menambahkan entri ke log harian Obsidian Vault (Catatan Harian).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -117,6 +117,27 @@ SERENA_TOOLS = [
                 "required": ["query"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_concept_note",
+            "description": "Simpan atau rangkum konsep teknis berharga dari percakapan ke Obsidian Vault (Kotak Masuk/<title>.md) beserta pencarian keterkaitan otomatis.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Judul konsep unik tanpa ekstensi, contoh: 'Arsitektur_Docker_Container' atau 'Konsep_Mikroservis'"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Isi lengkap rangkuman konsep berharga dalam format Markdown"
+                    }
+                },
+                "required": ["title", "content"]
+            }
+        }
     }
 ]
 
@@ -130,13 +151,16 @@ def execute_tool(name: str, args: dict) -> str:
         elif name == "list_skills":
             skills = vault_writer.list_skills()
             if not skills:
-                return "Belum ada skill yang tersimpan di Obsidian Vault (04-Skills)."
+                return "Belum ada skill yang tersimpan di Obsidian Vault (Panduan & SOP)."
             return "Daftar Skill Tersimpan :\n- " + "\n- ".join(skills)
         elif name == "save_daily_log":
             file_path = vault_writer.append_to_daily_log(args.get("title", ""), args.get("content", ""))
             return f"Entri log harian tersimpan di: {file_path}"
         elif name == "search_obsidian_vault":
             return obsidian_engine.search_obsidian_vault(args.get("query", ""))
+        elif name == "save_concept_note":
+            file_path = vault_writer.save_concept_note(args.get("title", ""), args.get("content", ""))
+            return f"Catatan konsep berhasil disimpan di Obsidian Vault: {file_path}"
         else:
             return f"Tool '{name}' tidak ditemukan."
     except Exception as err:
@@ -279,10 +303,15 @@ async def orchestrate_request(user_prompt: str, user_id: int) -> Dict[str, Any]:
         f"- Waktu/Jam Sekarang: {now_str}\n"
         f"- Direktori Kerja Aktif: {config.WORKSPACE_DIR}\n"
         f"{skills_context}\n\n"
-        "Anda memiliki akses ke Tools berikut (save_skill, get_skill, list_skills, save_daily_log, search_obsidian_vault).\n"
+        "Anda memiliki akses ke Tools berikut (save_skill, get_skill, list_skills, save_daily_log, search_obsidian_vault, save_concept_note).\n"
         "Jika pengguna meminta membuat/menyimpan skill SOP baru, gunakan tool 'save_skill'.\n"
         "Jika pengguna meminta membaca/menampilkan skill, gunakan tool 'get_skill' atau 'list_skills'.\n"
+        "Jika pengguna menyetujui/meminta menyimpan konsep ke Obsidian Vault (misal: 'ya simpan', 'simpan catatan ini', 'simpan ke vault'), gunakan tool 'save_concept_note'.\n"
         "Anda membawahi spesialis rekayasa teknis bernama 'Claude Code' yang bertugas mengeksekusi perintah koding, build, test, dan manipulasi berkas.\n\n"
+        "INTEGRASI SECOND BRAIN & HITL (HUMAN-IN-THE-LOOP):\n"
+        "1. Jika balasan intent CHAT Anda memberikan penjelasan konsep teknis/arsitektur/wawasan berharga, tambahkan penawaran HITL di akhir balasan 'chat_response':\n"
+        "   '📌 Saran Second Brain : Saya dapat merangkum konsep [Judul Konsep] ini ke Obsidian Vault Anda. Balas *ya simpan* jika Anda berkenan.'\n"
+        "2. Jika pengguna membalas setuju untuk menyimpan, gunakan tool 'save_concept_note' untuk merangkum pembahasan konsep tersebut secara rapi ke Obsidian Vault.\n\n"
         "Tugas Anda:\n"
         "1. Analisis pesan pengguna secara seksama dengan memperhitungkan riwayat percakapan sebelumnya.\n"
         "2. Tentukan apakah pesan adalah percakapan/sapaan/tanya-jawab biasa ('CHAT') atau instruksi tugas teknis/koding/manipulasi berkas ('TASK').\n"
@@ -363,27 +392,61 @@ async def orchestrate_request(user_prompt: str, user_id: int) -> Dict[str, Any]:
         }
 
 
-async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id: int) -> str:
+async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id: int) -> Dict[str, Any]:
     """
-    Curate raw execution output from Claude Code into a clean executive summary by Serena.
+    Curate raw execution output from Claude Code and evaluate log-worthiness for Obsidian Daily Log.
     """
     client = get_openai_client()
     if not client:
-        return claude_raw_output
+        return {
+            "is_logworthy": True,
+            "log_title": f"Tugas: {user_prompt[:30]}",
+            "curated_text": claude_raw_output
+        }
 
     now_str = datetime.now().strftime("%H:%M:%S WIB")
+    
+    # Retrieve semantic vault context to evaluate potential backlinks
+    vault_context = ""
+    try:
+        vault_context = obsidian_engine.search_obsidian_vault(user_prompt, top_k=3)
+    except Exception as err:
+        logger.warning(f"Vault search during curation error: {err}")
+        
+    vault_instruction = ""
+    if vault_context:
+        vault_instruction = (
+            f"\n\nCatatan Terkait di Vault Obsidian Saat Ini:\n{vault_context}\n\n"
+            "PETUNJUK KETERKAITAN OBSIDIAN VAULT:\n"
+            "Jika hasil eksekusi ini memiliki keterkaitan konseptual dengan catatan Obsidian di atas, "
+            "wajib cantumkan WikiLink pada bagian akhir 'curated_text' dengan format:\n"
+            "## Konsep Terkait :\n"
+            "- [[Nama Catatan Target]] — [Keterangan Penjelasan Keterkaitan Konseptual]\n"
+        )
+        
     system_prompt = (
         "Anda adalah Serena, Agent Master / Manajer Eksekutif.\n"
-        "PERATURAN MUTLAK: DILARANG MENGGUNAKAN EMOJI SAMA SEKALI.\n"
-        "Gunakan format Markdown Telegram yang rapi (teks tebal *Judul Bagian*, poin - , blok kode ```...```, monospace `kode`, dan kutipan > ) agar laporan tampak sangat profesional, terstruktur, dan mudah dibaca.\n"
-        f"Waktu Sekarang: {now_str}.\n"
-        "Anak buah Anda (Claude Code) telah selesai melaksanakan tugas teknis di sistem.\n"
-        "Tugas Anda: Rangkum dan kemas laporan hasil eksekusi tersebut menjadi narasi laporan eksekutif yang manusiawi, rapi, ramah, dan profesional untuk disajikan kepada pemilik/pendiri."
+        "PERATURAN MUTLAK:\n"
+        "1. DILARANG MENGGUNAKAN EMOJI SAMA SEKALI.\n"
+        "2. Gunakan format Markdown Telegram yang rapi (teks tebal *Judul Bagian*, poin - , blok kode ```...```, monospace `kode`).\n"
+        f"Waktu Sekarang: {now_str}.\n\n"
+        "Tugas Anda:\n"
+        "1. Rangkum hasil eksekusi tugas teknis dari Claude Code menjadi narasi laporan eksekutif yang manusiawi, rapi, ramah, dan profesional untuk Telegram.\n"
+        "2. Evaluasi penyaringan untuk Catatan Harian (Obsidian Daily Log):\n"
+        "   - ABAIKAN / SET is_logworthy = false JIKA: instruksi hanya berupa tes keisengan, obrolan santai, pertanyaan umum transient, atau perintah cek status sistem sementara (seperti free -h, uptime, pwd, ls, top, disk space).\n"
+        "   - SIMPAN / SET is_logworthy = true JIKA: instruksi berupa pekerjaan proyek bermakna (pembuatan/edit berkas, perbaikan bug, penulisan script, build/test proyek, riset mendalam, atau keputusan arsitektur).\n"
+        f"{vault_instruction}"
+        "3. Keluarkan format JSON valid:\n"
+        "{\n"
+        '  "is_logworthy": true atau false,\n'
+        '  "log_title": "Judul Aktivitas Singkat & Deskriptif (misal: Pembuatan Script Analisis CSV), kosongkan jika false",\n'
+        '  "curated_text": "Laporan ringkas & rapi untuk disajikan ke pengguna"\n'
+        "}"
     )
 
     user_content = (
         f"Instruksi Pengguna: {user_prompt}\n\n"
-        f"Hasil Eksekusi Claude Code:\n{claude_raw_output}"
+        f"Hasil Eksekusi Worker:\n{claude_raw_output}"
     )
 
     try:
@@ -395,12 +458,30 @@ async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id
             ],
             temperature=0.3
         )
-        curated_text = response.choices[0].message.content or claude_raw_output
+        content = response.choices[0].message.content or "{}"
+        try:
+            from app.core.supervisor import extract_json_data
+            data = extract_json_data(content)
+            is_logworthy = bool(data.get("is_logworthy", True))
+            log_title = str(data.get("log_title", "")).strip() or f"Tugas: {user_prompt[:30]}"
+            curated_text = str(data.get("curated_text", content)).strip()
+        except Exception:
+            is_logworthy = True
+            log_title = f"Tugas: {user_prompt[:30]}"
+            curated_text = content
         
         add_to_history(user_id, "user", user_prompt)
         add_to_history(user_id, "assistant", curated_text)
         
-        return curated_text
+        return {
+            "is_logworthy": is_logworthy,
+            "log_title": log_title,
+            "curated_text": curated_text
+        }
     except Exception as err:
         logger.error(f"Kendala kurasi Orchestrator AI: {err}")
-        return claude_raw_output
+        return {
+            "is_logworthy": True,
+            "log_title": f"Tugas: {user_prompt[:30]}",
+            "curated_text": claude_raw_output
+        }
