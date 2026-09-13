@@ -5,10 +5,8 @@ Utility module for text formatting, chunking long messages, and system error for
 def format_start_message() -> str:
     """Fallback static welcome message if AI API is completely offline."""
     return (
-        "Selamat datang. Saya Serena, asisten eksekutif dan manajer kerja Anda.\n\n"
-        "Saya siap membantu mengelola pekerjaan Anda, melakukan riset informasi, "
-        "mendelegasikan tugas-tugas pemrograman, serta mengorganisir catatan ke dalam Otak Kedua Anda.\n\n"
-        "Ada yang bisa saya bantu atau kita selesaikan bersama saat ini?"
+        "Selamat datang. Saya Serena.\n\n"
+        "Ada yang bisa saya bantu hari ini, atau ada topik menarik yang ingin kita bahas?"
     )
 
 def format_completion_message(summary_or_output: str) -> str:
