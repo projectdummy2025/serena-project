@@ -18,7 +18,7 @@ raw_vault = os.getenv("OBSIDIAN_VAULT_DIR", "~/obsidian_vault").strip()
 OBSIDIAN_VAULT_DIR = os.path.expanduser(raw_vault)
 
 # Ensure Obsidian Vault directories exist
-for subfolder in ["00-Inbox", "01-Projects", "02-Daily-Logs", "03-Decisions", "04-Skills"]:
+for subfolder in ["Kotak Masuk", "Proyek Aktif", "Catatan Harian", "Profil & Keputusan", "Panduan & SOP"]:
     os.makedirs(os.path.join(OBSIDIAN_VAULT_DIR, subfolder), exist_ok=True)
 
 
