@@ -24,11 +24,13 @@ from app.services import claude_service
 from app.services import orchestrator
 from app.core.graph import agent_app
 
-# Configure logging format
+# Configure logging format to match AGENTS.md standard: (date-timestamp) message
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="(%(asctime)s) %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -159,7 +161,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    logger.info(f"Pesan dari User {user_id}: '{prompt[:30]}'")
+    logger.info(f"Message diterima dari User {user_id}")
 
     # Start background task for continuous typing action
     stop_typing = asyncio.Event()

@@ -35,38 +35,6 @@ Dokumen ini berisi panduan langkah demi langkah (*tutorial*) untuk memasang, men
 
 ---
 
-## Susunan Codebase Proyek
-
-```text
-/home/ahmad/projects/claude-telegram/
-├── app/
-│   ├── __init__.py
-│   ├── config.py              # Konfigurasi variabel lingkungan & jalur Obsidian Vault
-│   ├── security.py            # Keamanan whitelist User ID
-│   ├── formatter.py           # Pemformat narasi laporan tanpa emoji
-│   ├── core/                  # Core Agentic & LangGraph Framework
-│   │   ├── __init__.py
-│   │   ├── state.py           # Definisi AgentState
-│   │   ├── supervisor.py      # Serena Manager & Evaluator ReAct
-│   │   └── graph.py           # Definisi StateGraph LangGraph
-│   ├── memory/                # Sub-Sistem Memori & Second Brain
-│   │   ├── __init__.py
-│   │   ├── obsidian_engine.py # Vector retrieval (LlamaIndex + ChromaDB)
-│   │   └── vault_writer.py    # Pembaca & Penulis catatan .md Obsidian
-│   └── services/              # Layanan Sub-Agent Eksekutor
-│       ├── __init__.py
-│       ├── claude_service.py  # Worker Claude Code CLI
-│       ├── research_service.py# Worker Riset Web (DuckDuckGo & Jina AI)
-│       └── orchestrator.py    # OpenAI AI client & pengelola memori percakapan
-├── bot.py                     # Entrypoint utama aplikasi Telegram Bot
-├── requirements.txt           # Daftar dependensi Python
-├── .env.example               # Templat berkas konfigurasi lingkungan
-├── .env                       # Berkas konfigurasi aktif
-└── README.md                  # Dokumentasi & panduan proyek
-```
-
----
-
 ## Langkah 1: Persiapan Lingkungan Kerja
 
 1. Masuk ke direktori proyek:
@@ -133,7 +101,7 @@ watchfiles --filter python "python bot.py"
 3. Kirimkan pesan sapaan, tugas koding, atau instruksi riset web:
    - **Sapaan / Percakapan**: `"Selamat Malam"` -> Balasan instan dan ramah dari Serena.
    - **Tugas Koding**: `"Buatkan script_uji.py"` -> Dikerjakan oleh Claude Code worker, dievaluasi, dan dicatat otomatis ke Obsidian Daily Log.
-   - **Tugas Riset**: `"Risetkan tren AI Agentic 2026"` -> Dikerjakan oleh Sub-Agent Riset via DuckDuckGo, dicatat ke Obsidian Vault (`00-Inbox/`), dan dilaporkan ke Telegram.
+   - **Tugas Riset**: `"Risetkan tren AI Agentic 2026"` -> Dikerjakan oleh Sub-Agent Riset via DuckDuckGo, dicatat ke Obsidian Vault (`Kotak Masuk/`), dan dilaporkan ke Telegram.
 
 ### Perintah Pendukung:
 - `/status` : Memeriksa kesiapan sistem, waktu, model Orchestrator AI, dan Claude CLI.
