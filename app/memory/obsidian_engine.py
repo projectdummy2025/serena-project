@@ -80,8 +80,22 @@ def search_obsidian_vault(query: str, top_k: int = 3) -> str:
 
         results = []
         for i, node in enumerate(nodes, 1):
+            full_path = node.node.metadata.get("file_path", "")
+            file_name = node.node.metadata.get("file_name", "") or node.node.metadata.get("filename", "")
+            
+            # Format relative vault path without extension for WikiLink target
+            rel_path = ""
+            if full_path and config.OBSIDIAN_VAULT_DIR in full_path:
+                rel_path = os.path.relpath(full_path, config.OBSIDIAN_VAULT_DIR)
+                if rel_path.endswith(".md"):
+                    rel_path = rel_path[:-3]
+            elif file_name:
+                rel_path = file_name[:-3] if file_name.endswith(".md") else file_name
+            else:
+                rel_path = f"Catatan_{i}"
+
             text_snippet = node.node.get_content()[:400]
-            results.append(f"Catatan Rujukan {i}:\n{text_snippet}...")
+            results.append(f"Catatan Rujukan {i} (WikiLink Target: [[{rel_path}]]):\n{text_snippet}...")
 
         return "\n\n".join(results)
 
