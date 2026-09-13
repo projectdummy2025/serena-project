@@ -397,7 +397,7 @@ def save_concept_note(title: str, content: str, folder: str = "Kotak Masuk", tag
     else:
         filename = f"{clean_title}.md"
 
-    # Step 1: Check if LlamaIndex finds a parent concept note to merge into
+    # Step 1: Check if LlamaIndex finds a parent concept note to link or merge
     try:
         parent_note = obsidian_engine.find_parent_concept_note(clean_title)
         if parent_note:
@@ -405,21 +405,37 @@ def save_concept_note(title: str, content: str, folder: str = "Kotak Masuk", tag
             parent_filename = parent_note["filename"]
             parent_title = parent_note["title"]
             
-            # Merge new sub-topic content into existing parent note under clean_title header
-            section_name = clean_title if clean_title != parent_title else "Materi Diskusi Lanjutan"
-            merged = update_existing_note(parent_folder, parent_filename, content.strip(), section_header=section_name)
-            
-            if merged:
-                parent_path = os.path.join(config.OBSIDIAN_VAULT_DIR, parent_folder, parent_filename)
-                log_sub = f" - {clean_title}" if (clean_title and clean_title != parent_title) else ""
-                append_to_daily_log(title=f"Update Konsep: {parent_title}{log_sub}", content=content)
+            # Sub-topic splitting: Jika judul sub-topik berbeda dengan judul induk, buat catatan atomik terpisah & hubungkan 2 arah (bi-directional link)
+            if clean_title and clean_title.lower() != parent_title.lower():
+                full_body = content.strip()
+                if not full_body.startswith(f"# {clean_title}"):
+                    full_body = f"# {clean_title}\n\n{full_body}"
+                
+                full_body += f"\n\n## Konsep Terkait :\n- [[{parent_title}]] — Konsep induk / konteks utama."
+                
+                # Buat catatan atomik terpisah untuk sub-topik
+                new_note_path = create_note(folder, filename, full_body, tags=tags or ["brainstorming", "konsep", "subtopik", "second-brain"])
+                
+                # Tambahkan backlink pada catatan induk menuju sub-topik ini
+                add_backlink_to_note(parent_folder, parent_filename, f"[[{clean_title}]] — Sub-topik spesifik.")
+                
+                append_to_daily_log(title=f"Catatan Konsep: {clean_title} (Sub-topik: {parent_title})", content=content)
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(f"({now_str}) Smart merged concept into existing note: {parent_path}")
-                return parent_path
-
+                logger.info(f"({now_str}) Created split atomic sub-topic note: {new_note_path} (linked to parent {parent_title})")
+                return new_note_path
+            else:
+                # Merge langsung ke catatan induk jika judul identik (penyempurnaan materi konsep yang sama)
+                merged = update_existing_note(parent_folder, parent_filename, content.strip(), section_header="Materi Diskusi Lanjutan")
+                if merged:
+                    parent_path = os.path.join(config.OBSIDIAN_VAULT_DIR, parent_folder, parent_filename)
+                    append_to_daily_log(title=f"Update Konsep: {parent_title}", content=content)
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    logger.info(f"({now_str}) Merged concept refinement into parent note: {parent_path}")
+                    return parent_path
     except Exception as err:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logger.warning(f"({now_str}) Smart merge lookup warning: {err}")
+        logger.warning(f"({now_str}) Smart merge/split lookup warning: {err}")
+
 
     # Step 2: If no parent note exists, create a new concept note
     clean_body = content.strip()
