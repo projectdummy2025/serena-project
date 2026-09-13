@@ -10,24 +10,37 @@ logger = logging.getLogger(__name__)
 
 def append_to_daily_log(title: str, content: str) -> str:
     """
-    Append an entry to today's Daily Log in the Obsidian Vault (Catatan Harian/YYYY-MM-DD.md).
+    Append an entry to today's Daily Log in the Obsidian Vault with a descriptive title format:
+    Catatan Harian/YYYY-MM-DD - [Descriptive Title].md
     """
     today_str = datetime.now().strftime("%Y-%m-%d")
     now_time_str = datetime.now().strftime("%H:%M:%S")
     daily_log_dir = os.path.join(config.OBSIDIAN_VAULT_DIR, "Catatan Harian")
     os.makedirs(daily_log_dir, exist_ok=True)
     
-    file_path = os.path.join(daily_log_dir, f"{today_str}.md")
+    clean_title = title.strip() if title else "Catatan Harian"
+    clean_suffix = re.sub(r"^(Catatan Konsep:\s*|Tugas:\s*|Aktivitas:\s*|Update Konsep:\s*)", "", clean_title, flags=re.IGNORECASE)
+    clean_suffix = re.sub(r'[\\/*?:"<>|]', "", clean_suffix).strip()
+    clean_suffix = re.sub(r"\s*\(\s*\)$", "", clean_suffix).strip()
+
     
-    entry_header = f"\n\n### [{now_time_str}] {title}\n\n"
+    if clean_suffix and clean_suffix.lower() != "catatan harian":
+        filename = f"{today_str} - {clean_suffix}.md"
+    else:
+        filename = f"{today_str}.md"
+        
+    file_path = os.path.join(daily_log_dir, filename)
+    
+    entry_header = f"\n\n### [{now_time_str}] {clean_title}\n\n"
     full_entry = entry_header + content.strip() + "\n"
     
     if os.path.exists(file_path):
         with open(file_path, "a", encoding="utf-8") as f:
             f.write(full_entry)
     else:
+        header_title = f"# {today_str} — {clean_title}\n"
         post = frontmatter.Post(
-            content=f"# Daily Log - {today_str}\n" + full_entry,
+            content=header_title + full_entry,
             tags=["daily-log", "second-brain"],
             date=today_str
         )
@@ -39,7 +52,7 @@ def append_to_daily_log(title: str, content: str) -> str:
 
     # Synchronize bi-directional backlinks to referenced WikiLinks in daily log entry
     try:
-        sync_bi_directional_backlinks("Catatan Harian", f"{today_str}.md", content)
+        sync_bi_directional_backlinks("Catatan Harian", filename, content)
     except Exception as e:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.warning(f"({now_str}) DailyLog backlink sync error: {e}")
@@ -372,8 +385,8 @@ def get_skill(skill_name: str) -> str:
 
 def save_concept_note(title: str, content: str, folder: str = "Kotak Masuk", tags: list = None) -> str:
     """
-    Save a new concept note in Obsidian Vault with automated semantic vector search
-    for existing relevant notes, automatic contextual WikiLink injection, and 2-way backlinks.
+    Save or merge a concept note in Obsidian Vault with automated LlamaIndex parent lookup,
+    Smart Note Merging into existing concept notes, and 2-way backlinks.
     """
     from app.memory import obsidian_engine
     
@@ -383,17 +396,48 @@ def save_concept_note(title: str, content: str, folder: str = "Kotak Masuk", tag
         clean_title = clean_title[:-3]
     else:
         filename = f"{clean_title}.md"
-        
-    full_content = f"# {clean_title}\n\n{content.strip()}"
+
+    # Step 1: Check if LlamaIndex finds a parent concept note to merge into
+    try:
+        parent_note = obsidian_engine.find_parent_concept_note(clean_title)
+        if parent_note:
+            parent_folder = parent_note["folder"]
+            parent_filename = parent_note["filename"]
+            parent_title = parent_note["title"]
+            
+            # Merge new sub-topic content into existing parent note under clean_title header
+            section_name = clean_title if clean_title != parent_title else "Materi Diskusi Lanjutan"
+            merged = update_existing_note(parent_folder, parent_filename, content.strip(), section_header=section_name)
+            
+            if merged:
+                parent_path = os.path.join(config.OBSIDIAN_VAULT_DIR, parent_folder, parent_filename)
+                log_sub = f" - {clean_title}" if (clean_title and clean_title != parent_title) else ""
+                append_to_daily_log(title=f"Update Konsep: {parent_title}{log_sub}", content=content)
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                logger.info(f"({now_str}) Smart merged concept into existing note: {parent_path}")
+                return parent_path
+
+    except Exception as err:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.warning(f"({now_str}) Smart merge lookup warning: {err}")
+
+    # Step 2: If no parent note exists, create a new concept note
+    clean_body = content.strip()
+    if clean_body.startswith(f"# {clean_title}"):
+        full_content = clean_body
+    else:
+        full_content = f"# {clean_title}\n\n{clean_body}"
     
     try:
         rel_notes = obsidian_engine.search_obsidian_vault(clean_title + " " + content, top_k=2)
         if rel_notes and "WikiLink Target: [[" in rel_notes:
             matches = re.findall(r"WikiLink Target:\s*\[\[([^\]]+)\]\]", rel_notes)
             context_links = []
+            seen_targets = set()
             for target in matches:
                 clean_target = target.strip()
-                if clean_target != clean_title and clean_target not in full_content:
+                if clean_target != clean_title and clean_target not in full_content and clean_target not in seen_targets:
+                    seen_targets.add(clean_target)
                     context_links.append(f"- [[{clean_target}]] — Konsep terkait relevan di Vault.")
             if context_links:
                 full_content += "\n\n## Konsep Terkait :\n" + "\n".join(context_links)
