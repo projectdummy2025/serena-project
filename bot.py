@@ -186,12 +186,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_response = result_state.get("chat_response", "")
         final_report = result_state.get("final_report", "")
 
-        if intent == "CHAT" and chat_response:
+        if intent in ("CHAT", "BRAINSTORMING", "SAVE_NOTE") and chat_response:
             await formatter.send_formatted_telegram_message(update, chat_response)
         elif final_report:
             await formatter.send_formatted_telegram_message(update, final_report)
+        elif chat_response:
+            await formatter.send_formatted_telegram_message(update, chat_response)
         else:
-            fallback = result_state.get("worker_output", "Pekerjaan telah selesai diproses.")
+            fallback = result_state.get("worker_output") or "Pekerjaan telah selesai diproses."
             await formatter.send_formatted_telegram_message(update, fallback)
 
     except Exception as err:
