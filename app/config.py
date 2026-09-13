@@ -11,8 +11,13 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 raw_allowed_id = os.getenv("ALLOWED_USER_ID", "").strip()
 ALLOWED_USER_ID = int(raw_allowed_id) if raw_allowed_id.isdigit() else None
 
-raw_workspace = os.getenv("WORKSPACE_DIR", str(Path(__file__).parent.parent.resolve())).strip()
-WORKSPACE_DIR = os.path.expanduser(raw_workspace)
+# Bot Engine directory auto-resolved dynamically from current codebase location
+WORKSPACE_DIR = str(Path(__file__).parent.parent.resolve())
+
+
+raw_serena_projects = os.getenv("SERENA_PROJECTS_DIR", "~/serena-projects").strip()
+SERENA_PROJECTS_DIR = os.path.expanduser(raw_serena_projects)
+os.makedirs(SERENA_PROJECTS_DIR, exist_ok=True)
 
 raw_vault = os.getenv("OBSIDIAN_VAULT_DIR", "~/obsidian_vault").strip()
 OBSIDIAN_VAULT_DIR = os.path.expanduser(raw_vault)
@@ -20,6 +25,7 @@ OBSIDIAN_VAULT_DIR = os.path.expanduser(raw_vault)
 # Ensure Obsidian Vault directories exist
 for subfolder in ["Kotak Masuk", "Proyek Aktif", "Catatan Harian", "Profil & Keputusan", "Panduan & SOP"]:
     os.makedirs(os.path.join(OBSIDIAN_VAULT_DIR, subfolder), exist_ok=True)
+
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
