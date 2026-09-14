@@ -89,22 +89,24 @@ async def supervisor_reason_node(user_prompt: str, user_id: int, retrieved_conte
         "Tugas Anda:\n"
         "1. Analisis pesan pengguna dengan mempertimbangkan riwayat percakapan & Konteks Rujukan Second Brain di atas.\n"
         "2. Klasifikasikan intent secara akurat:\n"
+        "   - 'SYSTEM': khusus untuk inisialisasi/kloning proyek Git baru, penulisan berkas .env, dan eksekusi perintah Linux cepat deterministik (seperti git clone, docker compose, npm install, codegraph init, dsb.).\n"
+        "   - 'TASK': khusus untuk rekayasa perangkat lunak mendalam yang membutuhkan Claude Code (analisis kode mendalam, pembuatan fitur baru, refactoring, perbaikan bug logika kompleks).\n"
+        "   - 'RESEARCH': khusus untuk tugas riset web / pencarian dokumentasi eksternal.\n"
         "   - 'CHAT': untuk percakapan/sapaan/pertanyaan umum.\n"
-        "   - 'BRAINSTORMING': saat pengguna berdiskusi tentang ide baru, konsep proyek, atau perencanaan. Serena berdiskusi secara alami, merangkum poin inti pengguna, dan menanyakan apakah ide ini ingin dicatatkan ke folder Kotak Masuk Obsidian.\n"
-        "   - 'SAVE_NOTE': saat pengguna menyetujui penyimpanan ide (misal: 'ya simpan', 'simpan ke vault', 'simpan catatan ini'). Serena mengekstrak ide asli pengguna secara alami, tepat, dan autentik dalam format Markdown yang rapi.\n"
-        "     ATURAN PENAUTAN WIKILINK PRESISI:\n"
-        "     - Evaluasi relevansi topik secara ketat: HANYA buat tautan WikiLink `[[WikiLink Target]]` dari 'Konteks Rujukan Second Brain' jika terdapat hubungan konsep/ilmu yang benar-benar kuat & substansial.\n"
-        "     - DILARANG keras membuat tautan jika topik tidak berhubungan.\n"
-        "     - Penempatan presisi: Sisipkan secara alami di dalam kalimat (in-line) ATAU letakkan di bagian paling bawah catatan pada seksi `## Konsep Terkait` jika tidak pas diselipkan di dalam paragraf utama.\n"
-        "   - 'TASK': khusus untuk perintah koding/eksekusi terminal/manipulasi berkas proyek lokal.\n"
-        "   - 'RESEARCH': khusus untuk tugas riset web.\n"
+        "   - 'BRAINSTORMING': saat pengguna berdiskusi tentang ide baru, konsep proyek, atau perencanaan.\n"
+        "   - 'SAVE_NOTE': saat pengguna menyetujui penyimpanan ide ke Obsidian Kotak Masuk.\n"
         "3. Berikan keluaran format JSON valid:\n"
         "{\n"
-        '  "intent": "CHAT", "BRAINSTORMING", "SAVE_NOTE", "TASK", atau "RESEARCH",\n'
-        '  "chat_response": "Jawaban ramah, alami, & informatif jika CHAT/BRAINSTORMING/SAVE_NOTE (kosongkan jika TASK/RESEARCH)",\n'
-        '  "claude_instruction": "Instruksi teknis presisi LENGKAP & MANDIRI untuk Claude Code jika TASK/RESEARCH (WAJIB mengandung URL repo, .env, target path jika ada), kosongkan jika CHAT/BRAINSTORMING/SAVE_NOTE",\n'
-        '  "note_title": "Judul singkat & deskriptif jika intent SAVE_NOTE, kosongkan jika tidak",\n'
-        '  "note_content": "Isi catatan ide autentik & alami dari pengguna jika intent SAVE_NOTE, kosongkan jika tidak"\n'
+        '  "intent": "SYSTEM", "TASK", "RESEARCH", "CHAT", "BRAINSTORMING", atau "SAVE_NOTE",\n'
+        '  "system_action": "SETUP_PROJECT" atau "EXECUTE_COMMAND" (wajib diisi jika intent SYSTEM, kosongkan jika bukan),\n'
+        '  "project_name": "nama proyek target (contoh: socratesv-project) jika SYSTEM/TASK, kosongkan jika tidak ada",\n'
+        '  "repo_url": "URL repositori git lengkap jika ada instruksi kloning",\n'
+        '  "env_content": "Isi lengkap konfigurasi berkas .env jika ada variabel lingkungan yang diberikan pengguna",\n'
+        '  "linux_command": "Perintah shell Linux yang ingin dijalankan jika system_action EXECUTE_COMMAND",\n'
+        '  "chat_response": "Jawaban ramah, alami, & informatif jika CHAT/BRAINSTORMING/SAVE_NOTE (kosongkan jika SYSTEM/TASK/RESEARCH)",\n'
+        '  "claude_instruction": "Instruksi teknis presisi LENGKAP & MANDIRI untuk Claude Code jika intent TASK",\n'
+        '  "note_title": "Judul singkat & deskriptif jika intent SAVE_NOTE",\n'
+        '  "note_content": "Isi catatan ide autentik & alami dari pengguna jika intent SAVE_NOTE"\n'
         "}"
     )
 
@@ -128,6 +130,16 @@ async def supervisor_reason_node(user_prompt: str, user_id: int, retrieved_conte
 
         chat_response = data.get("chat_response", "")
         claude_instruction = data.get("claude_instruction", user_prompt)
+        system_action = data.get("system_action", "")
+        project_name = data.get("project_name", "")
+        repo_url = data.get("repo_url", "")
+        env_content = data.get("env_content", "")
+        linux_command = data.get("linux_command", "")
+
+        # Fallback deteksi otomatis untuk URL git
+        if ("git clone" in user_prompt.lower() or "github.com" in user_prompt.lower()) and intent != "SYSTEM":
+            intent = "SYSTEM"
+            system_action = "SETUP_PROJECT"
 
         if intent == "SAVE_NOTE":
             note_title = data.get("note_title", "").strip() or f"Ide_{datetime.now().strftime('%H%M%S')}"
@@ -156,7 +168,12 @@ async def supervisor_reason_node(user_prompt: str, user_id: int, retrieved_conte
         return {
             "intent": intent,
             "chat_response": chat_response,
-            "claude_instruction": claude_instruction
+            "claude_instruction": claude_instruction,
+            "system_action": system_action,
+            "project_name": project_name,
+            "repo_url": repo_url,
+            "env_content": env_content,
+            "linux_command": linux_command
         }
     except Exception as err:
         logger.error(f"Kendala Supervisor Reason Node: {err}")
