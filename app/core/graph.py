@@ -64,6 +64,13 @@ async def worker_system_step(state: AgentState) -> Dict[str, Any]:
         if not env_content and ("PORT_" in prompt or "DATABASE_URL" in prompt or "API_KEY" in prompt):
             env_content = prompt
 
+        callback = state.get("progress_callback")
+        if callback:
+            try:
+                await callback("System Worker sedang mengkloning repositori dan menyiapkan berkas proyek...", 1)
+            except Exception:
+                pass
+
         setup_res = await system_service.setup_full_project(
             repo_url=repo_url,
             project_name=project_name,
@@ -107,9 +114,10 @@ async def worker_system_step(state: AgentState) -> Dict[str, Any]:
 async def worker_claude_step(state: AgentState) -> Dict[str, Any]:
     """Execute technical task via Claude Code CLI Sub-Agent."""
     instruction = state.get("claude_instruction") or state.get("user_prompt", "")
+    callback = state.get("progress_callback")
     output = await claude_service.execute_claude_task(
         prompt=instruction,
-        progress_callback=None
+        progress_callback=callback
     )
     return {"worker_output": output}
 
