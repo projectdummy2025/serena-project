@@ -22,4 +22,5 @@ class AgentState(TypedDict, total=False):
     repo_url: str
     env_content: str
     linux_command: str
+    progress_callback: Optional[Any]
 
