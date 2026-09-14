@@ -101,8 +101,7 @@ async def execute_claude_task(
             activity_update = parser.process_line(line_str)
 
             now = time.time()
-            if activity_update and progress_callback and (now - last_update_time >= 3.0):
-                last_update_time = now
+            if activity_update and progress_callback:
                 elapsed = int(now - start_time)
                 try:
                     await progress_callback(activity_update, elapsed)
