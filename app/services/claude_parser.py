@@ -50,6 +50,21 @@ class ClaudeStreamParser:
 
         return None
 
+    def _format_tool_narrative(self, tool_name: str) -> str:
+        """Menghasilkan narasi manusiawi berdasarkan jenis tool yang dipanggil."""
+        tool_lower = tool_name.lower()
+        if "bash" in tool_lower:
+            return "Claude Code sedang mengeksekusi perintah terminal proyek."
+        if any(w in tool_lower for w in ("read", "view", "cat")):
+            return "Claude Code sedang memeriksa konfigurasi dan berkas dependensi."
+        if any(w in tool_lower for w in ("write", "edit", "create", "modify")):
+            return "Claude Code sedang menyusun dan memodifikasi kode sumber."
+        if any(w in tool_lower for w in ("grep", "glob", "search", "find", "ls")):
+            return "Claude Code sedang menelusuri struktur direktori dan berkas."
+        if "codegraph" in tool_lower:
+            return "Claude Code sedang memetakan arsitektur kode via CodeGraph."
+        return "Claude Code sedang memproses tugas teknis."
+
     def _handle_assistant_event(self, event_data: Dict[str, Any]) -> Optional[str]:
         """Ekstrak aktivitas narasi atau pemanggilan tool dari pesan assistant."""
         message = event_data.get("message", {})
@@ -63,8 +78,9 @@ class ClaudeStreamParser:
             if item_type == "text":
                 text_content = item.get("text", "").strip()
                 if text_content and len(text_content) < 150:
-                    self.latest_activity = text_content
-                    activity_update = text_content
+                    clean_text = text_content[:80]
+                    self.latest_activity = f"Claude Code sedang menelaah struktur proyek.\n\nAktivitas Terkini : `{clean_text}`"
+                    activity_update = self.latest_activity
 
             # Ekstrak pemanggilan tool (Bash, Read, CodeGraph, dsb.)
             elif item_type == "tool_use":
@@ -73,7 +89,8 @@ class ClaudeStreamParser:
                 tool_summary = self._format_tool_summary(tool_name, tool_input)
 
                 self.executed_tools.append(tool_summary)
-                self.latest_activity = f"Menjalankan: {tool_summary}"
+                narrative = self._format_tool_narrative(tool_name)
+                self.latest_activity = f"{narrative}\n\nAktivitas Terkini : `{tool_summary}`"
                 activity_update = self.latest_activity
 
         return activity_update
@@ -100,16 +117,21 @@ class ClaudeStreamParser:
 
     def _format_tool_summary(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
         """Format ringkasan pemanggilan tool agar mudah dibaca."""
-        if tool_name == "Bash":
+        tool_lower = tool_name.lower()
+        if "bash" in tool_lower:
             cmd = tool_input.get("command", "")
             return f"Bash ({cmd[:60]}...)" if len(cmd) > 60 else f"Bash ({cmd})"
 
-        if tool_name in ("Read", "Write", "Edit"):
-            file_path = tool_input.get("file_path", "") or tool_input.get("target_file", "")
+        if any(w in tool_lower for w in ("read", "write", "edit", "view")):
+            file_path = tool_input.get("file_path", "") or tool_input.get("target_file", "") or tool_input.get("path", "")
             base_name = file_path.split("/")[-1] if file_path else "berkas"
             return f"{tool_name} ({base_name})"
 
-        if "codegraph" in tool_name.lower():
+        if any(w in tool_lower for w in ("grep", "glob", "search")):
+            query = tool_input.get("query", "") or tool_input.get("pattern", "") or tool_input.get("path", "")
+            return f"{tool_name} ({query[:40]})" if query else tool_name
+
+        if "codegraph" in tool_lower:
             query = tool_input.get("query", "")
             return f"CodeGraph ({query[:40]})" if query else "CodeGraph Explore"
 
