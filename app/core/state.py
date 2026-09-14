@@ -17,4 +17,9 @@ class AgentState(TypedDict, total=False):
     final_report: str
     sessionTopicBuffer: List[str]
     pendingConceptSummary: str
+    system_action: str
+    project_name: str
+    repo_url: str
+    env_content: str
+    linux_command: str
 
