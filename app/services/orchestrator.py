@@ -138,6 +138,27 @@ SERENA_TOOLS = [
                 "required": ["title", "content"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_active_project",
+            "description": "Simpan atau perbarui berkas konteks proyek aktif di Obsidian Vault (Proyek Aktif/<project_name>.md).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "project_name": {
+                        "type": "string",
+                        "description": "Nama proyek, contoh: 'SocratesV'"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Rincian status proyek, URL repo, dependensi, dan arsitektur dalam format Markdown"
+                    }
+                },
+                "required": ["project_name", "content"]
+            }
+        }
     }
 ]
 
@@ -161,6 +182,9 @@ def execute_tool(name: str, args: dict) -> str:
         elif name == "save_concept_note":
             file_path = vault_writer.save_concept_note(args.get("title", ""), args.get("content", ""))
             return f"Catatan konsep berhasil disimpan di Obsidian Vault: {file_path}"
+        elif name == "save_active_project":
+            file_path = vault_writer.save_active_project(args.get("project_name", ""), args.get("content", ""))
+            return f"Catatan proyek aktif berhasil disimpan di Obsidian Vault: {file_path}"
         else:
             return f"Tool '{name}' tidak ditemukan."
     except Exception as err:
@@ -424,10 +448,11 @@ async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id
         vault_instruction = (
             f"\n\nCatatan Terkait di Vault Obsidian Saat Ini:\n{vault_context}\n\n"
             "PETUNJUK KETERKAITAN OBSIDIAN VAULT:\n"
-            "Jika hasil eksekusi ini memiliki keterkaitan konseptual dengan catatan Obsidian di atas, "
-            "wajib cantumkan WikiLink pada bagian akhir 'curated_text' dengan format:\n"
+            "Jika hasil eksekusi ini memiliki keterkaitan konseptual nyata dengan catatan Proyek Aktif atau Panduan & SOP di atas, "
+            "cantumkan WikiLink pada bagian akhir 'curated_text' dengan format:\n"
             "## Konsep Terkait :\n"
             "- [[Nama Catatan Target]] — [Keterangan Penjelasan Keterkaitan Konseptual]\n"
+            "PERINGATAN: DILARANG menautkan [[User_Profile]] untuk eksekusi tugas teknis, manipulasi berkas, atau proyek!\n"
         )
         
     system_prompt = (
