@@ -93,7 +93,50 @@ flowchart TD
 
 ---
 
-## 3. Panduan Peralihan Niat Secara Mendadak (*Sudden Intent Switching*)
+## 3. Matriks Batasan Folder Obsidian Second Brain
+
+Setiap folder di dalam Obsidian Vault (`~/obsidian_vault`) memiliki fungsi spesifik dan hanya diisi oleh mode/kondisi tertentu:
+
+| Folder Obsidian | Mode Niat yang Bertanggung Jawab | Kapan Diisi? (Pemicu & Kriteria) | Apa yang Sebenarnya Ditulis? |
+| :--- | :--- | :--- | :--- |
+| **`Proyek Aktif/`** | **Mode 3 (`SYSTEM`) & Mode 2 (`TASK`)** | HANYA saat ada repositori/proyek nyata di `~/serena-projects/<nama_proyek>`. | Lembar konteks hidup (*Living Context Sheet*): URL repo, status instalasi, konfigurasi `.env`, dan tautan log harian `[[Catatan Harian/YYYY-MM-DD]]`. |
+| **`Catatan Harian/`** | **Mode 2 (`TASK`) & Mode 3 (`SYSTEM`)** | Selektif (*is_logworthy = true*): hanya jika terjadi pekerjaan proyek bermakna (edit berkas, script baru, analisis arsitektur, atau build/test).<br><br>**DILARANG DIISI JIKA**: hanya sapaan santai (`CHAT`) atau inspeksi status sementara (`free -h`, `df -h`, `uptime`). | Log kronologis harian: Timestamp `### [HH:MM:SS]`, ringkasan eksekutif apa yang diubah/dianalisis, dan *bi-directional WikiLinks* ke proyek terkait. |
+| **`Panduan & SOP/`** | **Mode 5 (`SAVE_NOTE` / Tool `save_skill`)** | Saat ada alur kerja atau hasil riset yang bersifat *repeatable* (dapat diulang di masa depan), atau saat Anda meminta: *"Simpan sebagai SOP/panduan"*. | Dokumen panduan praktis: Prasyarat sistem, langkah-langkah eksekusi terminal berurutan, konfigurasi variabel, dan *troubleshooting*. |
+| **`Kotak Masuk/`** | **Mode 1 (`BRAINSTORMING` -> `SAVE_NOTE`)** | Saat Anda dan Serena berdiskusi santai lalu lahir ide aplikasi/fitur baru, dan Anda meminta: *"Simpan ide ini ke vault"*. | Catatan ide mentah (*Fleeting Notes*): Gagasan asli pengguna, poin-poin diskusi santai, dan potensi pengembangan sebelum resmi menjadi proyek aktif. |
+| **`Profil & Keputusan/`** | **Supervisor Serena (Background Memory)** | Dievolusikan saat Anda menyatakan preferensi komunikasi atau prinsip arsitektur secara eksplisit. | Berkas `User_Profile.md`: Gaya bahasa yang disukai, kebiasaan kerja, dan prinsip keputusan teknis yang selalu dibaca Serena sebelum menjawab. |
+
+---
+
+## 4. Daur Hidup & Batasan Penanganan Proyek (*Project Lifecycle*)
+
+Ketika Anda menginstruksikan Serena untuk menangani suatu proyek perangkat lunak (contoh: *SWE-bench* atau *socratesv-project*), siklus hidupnya terbagi menjadi 4 fase dengan batas tanggung jawab yang tegas:
+
+```mermaid
+flowchart LR
+    F1["1. Inisialisasi Lingkungan\n(System Worker)\nGit Clone, .env, CodeGraph"] --> F2["2. Rekayasa & Bedah Kode\n(Claude Code Worker)\nAnalisis Dependensi & Modul"]
+    F2 --> F3["3. Operasional & Eksekusi\n(System Worker)\nDocker, Perintah Linux, Cek Port"]
+    F3 --> F4["4. Dokumentasi & SOP\n(Obsidian Scribe)\nPanduan Praktis & WikiLinks"]
+```
+
+### A. Fase 1 : Inisialisasi Lingkungan (Mode 3 : Sistem)
+* **Tanggung Jawab** : Mengkloning repositori git ke `~/serena-projects/<nama_proyek>/`, menulis berkas `.env`, menginisialisasi CodeGraph (`codegraph init`), dan mendaftarkan lembar kerja baru di `Proyek Aktif/<nama_proyek>.md`.
+* **Batasannya** : Fase ini tidak melakukan modifikasi kode sumber aplikasi; fokus murni pada penyiapan lingkungan fisik proyek.
+
+### B. Fase 2 : Rekayasa & Analisis Kode (Mode 2 : Rekayasa)
+* **Tanggung Jawab** : Claude Code masuk ke direktori proyek target (`~/serena-projects/<nama_proyek>/`), menelaah dependensi (`package.json`, `pyproject.toml`), membedah struktur arsitektur, memperbaiki bug, membuat fitur, atau menyusun unit test.
+* **Batasannya** : Seluruh operasi berkas terkunci di dalam direktori proyek tersebut (`~/serena-projects/<nama_proyek>/`) dan dilarang menyentuh direktori mesin bot Anda.
+
+### C. Fase 3 : Operasional & Eksekusi (Mode 3 : Sistem)
+* **Tanggung Jawab** : Menjalankan kontainer pendukung (`docker compose up -d`), memeriksa port jaringan yang aktif (`ss -tuln`), atau mengeksekusi skrip otomasi terminal secara langsung.
+* **Batasannya** : Berjalan cepat secara native di Linux shell tanpa beban overhead token LLM koding.
+
+### D. Fase 4 : Pengarsipan & SOP (Mode 5 : Memori)
+* **Tanggung Jawab** : Merumuskan panduan operasional proyek ke dalam `Panduan & SOP/<nama_proyek>_SOP.md` dan menautkannya dengan lembar kerja proyek aktif via *WikiLinks*.
+* **Batasannya** : Bertugas mengikat pengetahuan agar tidak hilang saat sesi percakapan selesai.
+
+---
+
+## 5. Panduan Peralihan Niat Secara Mendadak (*Sudden Intent Switching*)
 
 Anda bebas melompat dari satu mode ke mode lainnya secara spontan dalam satu ruang obrolan tanpa perlu mereset bot. Serena menjaga riwayat percakapan secara multi-turn:
 
@@ -113,7 +156,7 @@ Anda bebas melompat dari satu mode ke mode lainnya secara spontan dalam satu rua
 
 ---
 
-## 4. Perintah Kontrol Cepat (*Slash Commands*)
+## 6. Perintah Kontrol Cepat (*Slash Commands*)
 
 | Perintah | Fungsi |
 | :--- | :--- |
@@ -125,7 +168,7 @@ Anda bebas melompat dari satu mode ke mode lainnya secara spontan dalam satu rua
 
 ---
 
-## 5. Panduan Instalasi & Persiapan Lingkungan
+## 7. Panduan Instalasi & Persiapan Lingkungan
 
 ### 1. Kloning & Virtual Environment
 ```bash
@@ -162,7 +205,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 ---
 
-## 6. Menjalankan Bot
+## 8. Menjalankan Bot
 
 ### Mode Standar (Produksi):
 ```bash
