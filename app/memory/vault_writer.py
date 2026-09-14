@@ -376,6 +376,41 @@ def get_skill(skill_name: str) -> str:
         clean_name += ".md"
     return read_note("Panduan & SOP", clean_name)
 
+def save_active_project(project_name: str, content: str, tags: list = None) -> str:
+    """
+    Save or update an active project document in Obsidian Vault (Proyek Aktif/<project_name>.md).
+    """
+    clean_name = project_name.strip().replace(" ", "_")
+    if not clean_name.endswith(".md"):
+        clean_name += ".md"
+
+    project_tags = (tags or []) + ["proyek", "active-project"]
+    file_path = create_note("Proyek Aktif", clean_name, content, tags=project_tags)
+    
+    # Hubungkan catatan proyek ke log harian
+    append_to_daily_log(
+        title=f"Aktivitas Proyek: {project_name}",
+        content=f"Inisialisasi / pembaruan status proyek [[Proyek Aktif/{project_name}]]."
+    )
+    
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info(f"({now_str}) VaultWriter active project saved: {file_path}")
+    return f"Proyek berhasil dicatat di: {file_path}"
+
+def list_active_projects() -> list:
+    """
+    List all active project notes in Obsidian Vault (Proyek Aktif).
+    """
+    projects_dir = os.path.join(config.OBSIDIAN_VAULT_DIR, "Proyek Aktif")
+    if not os.path.exists(projects_dir):
+        return []
+
+    projects = []
+    for f in os.listdir(projects_dir):
+        if f.endswith(".md"):
+            projects.append(f[:-3])
+    return sorted(projects)
+
 def save_concept_note(title: str, content: str, folder: str = "Kotak Masuk", tags: list = None) -> str:
     """
     Save or merge a concept note in Obsidian Vault with automated LlamaIndex parent lookup,
