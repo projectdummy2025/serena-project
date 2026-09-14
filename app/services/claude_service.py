@@ -6,6 +6,7 @@ import time
 from typing import Callable, Awaitable, Optional
 
 from app import config
+from app.services.claude_parser import ClaudeStreamParser
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ async def execute_claude_task(
     timeout_seconds: int = 1800
 ) -> str:
     """
-    Execute a prompt using Claude Code CLI asynchronously and stream stdout live.
+    Execute a prompt using Claude Code CLI asynchronously with stream-json parsing and live updates.
     """
     cli_path = find_claude_cli()
     if not cli_path:
@@ -53,19 +54,25 @@ async def execute_claude_task(
         "DILARANG MENGGUNAKAN EMOJI SAMA SEKALI dalam balasan Anda. "
         f"Direktori Root Agent Workspace Proyek: {config.SERENA_PROJECTS_DIR}.\n"
         "Aturan Penempatan Berkas: Seluruh tugas koding, pembuatan berkas, dan proyek baru WAJIB ditempatkan di dalam folder proyek spesifik di bawah direktori Agent Workspace (contoh: " + config.SERENA_PROJECTS_DIR + "/<nama_proyek>/).\n"
-        "Jika pengguna bertanya atau mengobrol biasa, jawablah secara langsung dan alami. "
-        "Jika pengguna memberikan tugas pemrograman atau pengeditan berkas, laksanakan tugas tersebut dan berikan laporan ringkas hasilnya.\n\n"
+        "PERINTAH EKSEKUSI MUTLAK:\n"
+        "Anda memiliki izin penuh untuk mengeksekusi perintah terminal / bash. EKSEKUSI LANGSUNG seluruh perintah (seperti git clone, penulisan berkas .env, inisialisasi codegraph, dsb.) menggunakan tools yang tersedia.\n"
+        "DILARANG KERAS hanya menuliskan teks kode bash atau meminta konfirmasi manual pengguna tanpa menjalankan peralatannya!\n\n"
         f"Instruksi Pengguna: {prompt}"
     )
 
-    
-    cmd = [cli_path, "-p", system_instructions]
+    cmd = [
+        cli_path,
+        "--dangerously-skip-permissions",
+        "-p", system_instructions,
+        "--output-format", "stream-json",
+        "--verbose"
+    ]
     
     logger.info(f"Menjalankan perintah Claude Code di {target_cwd}: {prompt[:50]}...")
     
     start_time = time.time()
     last_update_time = start_time
-    latest_activity = "Memulai proses eksekusi instruksi..."
+    parser = ClaudeStreamParser()
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
@@ -74,10 +81,10 @@ async def execute_claude_task(
         cwd=target_cwd
     )
 
-    output_lines = []
+    raw_lines = []
     
     async def read_stream():
-        nonlocal latest_activity, last_update_time
+        nonlocal last_update_time
         if process.stdout is None:
             return
             
@@ -87,19 +94,20 @@ async def execute_claude_task(
                 break
             
             line_str = line_bytes.decode("utf-8", errors="replace").strip()
-            if line_str:
-                output_lines.append(line_str)
-                if len(line_str) > 5 and not line_str.startswith("http"):
-                    latest_activity = line_str[:120]
+            if not line_str:
+                continue
+
+            raw_lines.append(line_str)
+            activity_update = parser.process_line(line_str)
 
             now = time.time()
-            if progress_callback and (now - last_update_time >= 5.0):
+            if activity_update and progress_callback and (now - last_update_time >= 3.0):
                 last_update_time = now
                 elapsed = int(now - start_time)
                 try:
-                    await progress_callback(latest_activity, elapsed)
+                    await progress_callback(activity_update, elapsed)
                 except Exception as e:
-                    logger.debug(f"Kendala saat memperbarui status kemajuan: {e}")
+                    logger.debug(f"Kendala callback status kemajuan: {e}")
 
     try:
         await asyncio.wait_for(read_stream(), timeout=timeout_seconds)
@@ -107,15 +115,16 @@ async def execute_claude_task(
         await process.wait()
         
         stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+        formatted_output = parser.get_formatted_output()
         
-        full_output = "\n".join(output_lines).strip()
-        if not full_output and stderr_str:
-            full_output = f"Catatan Sistem / Error:\n{stderr_str}"
+        # Tangani jika output kosong dan terdapat pesan error di stderr
+        if not formatted_output and stderr_str:
+            formatted_output = f"Catatan Sistem / Error:\n{stderr_str}"
             
-        if process.returncode != 0 and not full_output:
-            full_output = f"Proses berakhir dengan kode status {process.returncode}.\n{stderr_str}"
+        if process.returncode != 0 and not formatted_output:
+            formatted_output = f"Proses berakhir dengan kode status {process.returncode}.\n{stderr_str}"
             
-        return full_output
+        return formatted_output
         
     except asyncio.TimeoutError:
         try:
