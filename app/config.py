@@ -17,14 +17,20 @@ WORKSPACE_DIR = str(Path(__file__).parent.parent.resolve())
 
 raw_serena_projects = os.getenv("SERENA_PROJECTS_DIR", "~/serena-projects").strip()
 SERENA_PROJECTS_DIR = os.path.expanduser(raw_serena_projects)
-os.makedirs(SERENA_PROJECTS_DIR, exist_ok=True)
+try:
+    os.makedirs(SERENA_PROJECTS_DIR, exist_ok=True)
+except OSError:
+    pass
 
 raw_vault = os.getenv("OBSIDIAN_VAULT_DIR", "~/obsidian_vault").strip()
 OBSIDIAN_VAULT_DIR = os.path.expanduser(raw_vault)
 
 # Ensure Obsidian Vault directories exist
-for subfolder in ["Kotak Masuk", "Proyek Aktif", "Catatan Harian", "Profil & Keputusan", "Panduan & SOP"]:
-    os.makedirs(os.path.join(OBSIDIAN_VAULT_DIR, subfolder), exist_ok=True)
+try:
+    for subfolder in ["Kotak Masuk", "Proyek Aktif", "Catatan Harian", "Profil & Keputusan", "Panduan & SOP"]:
+        os.makedirs(os.path.join(OBSIDIAN_VAULT_DIR, subfolder), exist_ok=True)
+except OSError:
+    pass
 
 
 
