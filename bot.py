@@ -17,6 +17,7 @@ from telegram.ext import (
     filters
 )
 
+import time
 from app import config
 from app import security
 from app import formatter
@@ -153,7 +154,8 @@ async def cwd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @security.restricted
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handle user message through LangGraph Multi-Agent StateGraph workflow with continuous typing indicator.
+    Handle user message through LangGraph Multi-Agent StateGraph workflow with continuous typing indicator
+    and human-like real-time live status updates without emojis.
     """
     prompt = update.message.text
     if not prompt:
@@ -162,6 +164,57 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     logger.info(f"Message diterima dari User {user_id}")
+
+    # Kirim balon status dinamis awal ke Telegram
+    initial_status_text = (
+        "*Sedang Diproses* (0 detik)\n"
+        "Menelaah instruksi dan menyiapkan lingkungan kerja..."
+    )
+    status_message = None
+    try:
+        status_message = await update.message.reply_text(
+            text=initial_status_text,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.debug(f"Gagal mengirim pesan status awal: {e}")
+
+    start_time = time.time()
+    last_edit_time = 0.0
+    current_activity = "Menelaah instruksi dan menyiapkan lingkungan kerja..."
+    pending_edit_task: Optional[asyncio.Task] = None
+
+    async def apply_status_edit(text: str):
+        nonlocal last_edit_time
+        try:
+            await status_message.edit_text(text=text, parse_mode="Markdown")
+            last_edit_time = time.time()
+        except Exception:
+            pass
+
+    async def live_progress_callback(activity_text: str, elapsed_seconds: int):
+        nonlocal last_edit_time, current_activity, pending_edit_task
+        if not status_message:
+            return
+
+        current_activity = activity_text
+        updated_text = f"*Sedang Diproses* ({elapsed_seconds} detik)\n{activity_text}"
+        now = time.time()
+
+        # Hindari rate limit Telegram (minimal jeda 2.5 detik antar edit)
+        if now - last_edit_time >= 2.5:
+            if pending_edit_task and not pending_edit_task.done():
+                pending_edit_task.cancel()
+            await apply_status_edit(updated_text)
+        else:
+            if pending_edit_task is None or pending_edit_task.done():
+                wait_seconds = 2.5 - (now - last_edit_time)
+                async def delayed_update():
+                    await asyncio.sleep(wait_seconds)
+                    cur_elapsed = int(time.time() - start_time)
+                    msg = f"*Sedang Diproses* ({cur_elapsed} detik)\n{current_activity}"
+                    await apply_status_edit(msg)
+                pending_edit_task = asyncio.create_task(delayed_update())
 
     # Start background task for continuous typing action
     stop_typing = asyncio.Event()
@@ -178,12 +231,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "evaluation_status": "SUCCESS",
         "eval_feedback": "",
         "retry_count": 0,
-        "final_report": ""
+        "final_report": "",
+        "progress_callback": live_progress_callback
     }
 
     try:
         result_state = await agent_app.ainvoke(initial_state)
         
+        # Hapus balon status dinamis agar ruang obrolan tetap bersih
+        if status_message:
+            try:
+                await status_message.delete()
+            except Exception:
+                pass
+
         intent = result_state.get("intent", "CHAT")
         chat_response = result_state.get("chat_response", "")
         final_report = result_state.get("final_report", "")
@@ -200,9 +261,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as err:
         logger.error(f"Kendala pada alur LangGraph Workflow: {err}")
+        if status_message:
+            try:
+                await status_message.delete()
+            except Exception:
+                pass
         error_text = formatter.format_error_message(str(err))
         await formatter.send_formatted_telegram_message(update, error_text)
     finally:
+        # Cancel pending status edit task if running
+        if pending_edit_task and not pending_edit_task.done():
+            pending_edit_task.cancel()
         # Stop background typing indicator
         stop_typing.set()
         await typing_task
