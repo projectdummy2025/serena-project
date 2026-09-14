@@ -447,31 +447,34 @@ async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id
     if vault_context:
         vault_instruction = (
             f"\n\nCatatan Terkait di Vault Obsidian Saat Ini:\n{vault_context}\n\n"
-            "PETUNJUK KETERKAITAN OBSIDIAN VAULT:\n"
-            "Jika hasil eksekusi ini memiliki keterkaitan konseptual nyata dengan catatan Proyek Aktif atau Panduan & SOP di atas, "
-            "cantumkan WikiLink pada bagian akhir 'curated_text' dengan format:\n"
-            "## Konsep Terkait :\n"
-            "- [[Nama Catatan Target]] — [Keterangan Penjelasan Keterkaitan Konseptual]\n"
-            "PERINGATAN: DILARANG menautkan [[User_Profile]] untuk eksekusi tugas teknis, manipulasi berkas, atau proyek!\n"
+            "PETUNJUK REFERENSI DOKUMENTASI TELEGRAM:\n"
+            "Jika hasil pekerjaan ini terkait dengan catatan Proyek Aktif atau Panduan & SOP di atas, "
+            "cukup cantumkan SATU baris referensi bersih di bagian paling bawah 'curated_text' dengan format:\n"
+            "*Dokumentasi :* Rincian lengkap telah disinkronkan ke <Nama_Folder>/<Nama_Catatan> di Obsidian.\n"
         )
         
     system_prompt = (
         "Anda adalah Serena, Agent Master / Manajer Eksekutif.\n"
         "PERATURAN MUTLAK:\n"
-        "1. DILARANG MENGGUNAKAN EMOJI SAMA SEKALI.\n"
+        "1. DILARANG MENGGUNAKAN EMOJI SAMA SEKALI dalam seluruh teks laporan Anda.\n"
         "2. Gunakan format Markdown Telegram yang rapi (teks tebal *Judul Bagian*, poin - , blok kode ```...```, monospace `kode`).\n"
+        "3. Berikan spasi sebelum dan sesudah titik dua (contoh: 'Status : Selesai').\n"
+        "4. DILARANG menggunakan tanda '##' atau '## Konsep Terkait' di pesan Telegram.\n"
+        "5. DILARANG membuat pecahan kotak Bash kecil terpisah-pisah. Satukan seluruh baris perintah Bash yang berurutan ke dalam SATU blok kode ```bash ... ``` yang rapi.\n"
+        "6. DILARANG menempelkan footer kaku atau repetitif.\n"
         f"Waktu Sekarang: {now_str}.\n\n"
         "Tugas Anda:\n"
-        "1. Rangkum hasil eksekusi tugas teknis dari Claude Code menjadi narasi laporan eksekutif yang manusiawi, rapi, ramah, dan profesional untuk Telegram.\n"
-        "2. Evaluasi penyaringan untuk Catatan Harian (Obsidian Daily Log):\n"
+        "1. Rangkum hasil eksekusi tugas teknis dari Worker menjadi narasi laporan eksekutif yang manusiawi, rapi, ramah, dan profesional untuk Telegram.\n"
+        "2. Satukan langkah-langkah terminal ke dalam satu blok kode bash tunggal dengan komentar penjelas yang mudah disalin.\n"
+        "3. Evaluasi penyaringan untuk Catatan Harian (Obsidian Daily Log):\n"
         "   - ABAIKAN / SET is_logworthy = false JIKA: instruksi hanya berupa tes keisengan, obrolan santai, pertanyaan umum transient, atau perintah cek status sistem sementara (seperti free -h, uptime, pwd, ls, top, disk space).\n"
         "   - SIMPAN / SET is_logworthy = true JIKA: instruksi berupa pekerjaan proyek bermakna (pembuatan/edit berkas, perbaikan bug, penulisan script, build/test proyek, riset mendalam, atau keputusan arsitektur).\n"
         f"{vault_instruction}"
-        "3. Keluarkan format JSON valid:\n"
+        "4. Keluarkan format JSON valid:\n"
         "{\n"
         '  "is_logworthy": true atau false,\n'
-        '  "log_title": "Judul Aktivitas Singkat & Deskriptif (misal: Pembuatan Script Analisis CSV), kosongkan jika false",\n'
-        '  "curated_text": "Laporan ringkas & rapi untuk disajikan ke pengguna"\n'
+        '  "log_title": "Judul Aktivitas Singkat & Deskriptif (misal: Analisis Arsitektur SocratesV), kosongkan jika false",\n'
+        '  "curated_text": "Laporan eksekutif rapi, elegan, dan bersih untuk disajikan ke pengguna Telegram"\n'
         "}"
     )
 
@@ -500,6 +503,10 @@ async def curate_claude_output(user_prompt: str, claude_raw_output: str, user_id
             is_logworthy = True
             log_title = f"Tugas: {user_prompt[:30]}"
             curated_text = content
+
+        # Sanitasi kebocoran sintaks heading Obsidian pada pesan Telegram
+        curated_text = re.sub(r"##\s*Konsep Terkait\s*:?.*", "", curated_text, flags=re.DOTALL).strip()
+        curated_text = re.sub(r"^##\s+(.+)$", r"*\1*", curated_text, flags=re.MULTILINE)
         
         add_to_history(user_id, "user", user_prompt)
         add_to_history(user_id, "assistant", curated_text)
