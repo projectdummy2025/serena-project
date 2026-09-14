@@ -165,27 +165,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     logger.info(f"Message diterima dari User {user_id}")
 
-    # Kirim balon status dinamis awal ke Telegram
-    initial_status_text = (
-        "*Sedang Diproses* (0 detik)\n"
-        "Menelaah instruksi dan menyiapkan lingkungan kerja..."
-    )
     status_message = None
-    try:
-        status_message = await update.message.reply_text(
-            text=initial_status_text,
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        logger.debug(f"Gagal mengirim pesan status awal: {e}")
-
     start_time = time.time()
     last_edit_time = 0.0
-    current_activity = "Menelaah instruksi dan menyiapkan lingkungan kerja..."
+    current_activity = ""
     pending_edit_task: Optional[asyncio.Task] = None
 
     async def apply_status_edit(text: str):
-        nonlocal last_edit_time
+        nonlocal last_edit_time, status_message
+        if not status_message:
+            try:
+                status_message = await update.message.reply_text(text=text, parse_mode="Markdown")
+                last_edit_time = time.time()
+            except Exception as e:
+                logger.debug(f"Gagal mengirim pesan status awal: {e}")
+            return
+
         try:
             await status_message.edit_text(text=text, parse_mode="Markdown")
             last_edit_time = time.time()
@@ -194,12 +189,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     async def live_progress_callback(activity_text: str, elapsed_seconds: int):
         nonlocal last_edit_time, current_activity, pending_edit_task
-        if not status_message:
-            return
-
         current_activity = activity_text
         updated_text = f"*Sedang Diproses* ({elapsed_seconds} detik)\n{activity_text}"
         now = time.time()
+
+        # Jika pesan status belum dibuat, buat pertama kali secara instan saat worker aktif
+        if not status_message:
+            await apply_status_edit(updated_text)
+            return
 
         # Hindari rate limit Telegram (minimal jeda 2.5 detik antar edit)
         if now - last_edit_time >= 2.5:
