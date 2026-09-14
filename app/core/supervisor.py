@@ -65,11 +65,27 @@ async def supervisor_reason_node(user_prompt: str, user_id: int, retrieved_conte
         "ATURAN DIREKTORI PROYEK: Seluruh tugas koding/manipulasi file proyek WAJIB berlokasi di dalam subfolder " + config.SERENA_PROJECTS_DIR + "/<nama_proyek>/, BUKAN di direktori mesin bot.\n\n"
 
         f"Konteks Rujukan Second Brain (Obsidian Vault):\n{retrieved_context}\n\n"
-        "INTEGRASI SECOND BRAIN & HITL (HUMAN-IN-THE-LOOP):\n"
-        "1. DILARANG menempelkan footer kaku/repetitif di setiap balasan pesan.\n"
-        "2. Jawab obrolan secara alami, ramah, hangat, dan lugas tanpa iklan/template kaku.\n"
-        "3. HANYA sertakan penawaran rangkuman santai jika pembahasan suatu topik teknis telah berlangsung beberapa kali obrolan dan mencapai kesimpulan/milestone lengkap. Gunakan kalimat alami variatif (contoh: 'Pembahasan kita mengenai Docker dan isolasi lingkungan ini lumayan padat ya. Mau saya rapikan poin-poin utamanya jadi satu berkas materi di Vault?').\n"
-        "4. Jika pengguna setuju untuk menyimpan ('SAVE_NOTE'), rangkum SELURUH alur pembahasan topik tersebut dari awal sampai akhir secara terstruktur dan hubungkan secara kontekstual dengan catatan terkait di Vault.\n\n"
+        "STRUKTUR SECOND BRAIN (OBSIDIAN VAULT):\n"
+        "- 'Proyek Aktif': Tempat catatan konteks, status, arsitektur, dan ringkasan proyek nyata yang sedang dikerjakan.\n"
+        "- 'Panduan & SOP': Tempat resep kerja, standar prosedur (Skills), dan alur operasional yang repeatable.\n"
+        "- 'Catatan Harian': Timeline log kronologis harian.\n"
+        "- 'Kotak Masuk': Rangkuman ide atau materi diskusi mentah.\n"
+        "- 'Profil & Keputusan': Preferensi personal pengguna (User_Profile.md).\n\n"
+
+        "ATURAN KRUSIAL EKSEKUSI TUGAS (ANTI-CONTEXT-LOSS & DIRECT EXECUTION):\n"
+        "1. RESOLUSI KONTEKS RESPON SINGKAT:\n"
+        "   Jika pesan pengguna adalah respon singkat (seperti 'ya', 'oke', 'lanjutkan', 'gas', 'clone sekarang', 'eksekusi', dsb.) atau merujuk ke pesan sebelumnya:\n"
+        "   Anda WAJIB menelaah seluruh riwayat percakapan sebelumnya dan menyusun `claude_instruction` secara LENGKAP & MANDIRI (self-contained).\n"
+        "   Sertakan URL repositori Git, konfigurasi `.env`, nama proyek target, dan langkah eksekusinya ke dalam `claude_instruction`.\n"
+        "   DILARANG KERAS mengirimkan instruksi satu kata ('ya') ke Claude Code karena worker dijalankan secara independen tanpa memori percakapan sebelumnya!\n\n"
+        "2. LANGSUNG EKSEKUSI INISIALISASI PROYEK:\n"
+        "   Jika pengguna meminta kloning/inisialisasi proyek baru dengan menyertakan URL repo dan/atau variabel `.env`:\n"
+        "   JANGAN membuat laporan gantung yang meminta konfirmasi ulang jika permintaannya sudah jelas. Langsung tetapkan intent = 'TASK' dan susun `claude_instruction` untuk:\n"
+        "   a. Klon repositori git ke " + config.SERENA_PROJECTS_DIR + "/<nama_proyek>/\n"
+        "   b. Tulis berkas `.env` di dalam folder proyek tersebut dengan konfigurasi variabel yang disediakan pengguna.\n"
+        "   c. Jalankan inisialisasi lingkungan yang diminta (misal: `codegraph init` atau pengecekan struktur direktori).\n"
+        "   d. Buat/perbarui berkas ringkasan proyek di Obsidian Vault: Proyek Aktif/<nama_proyek>.md\n\n"
+
         "Tugas Anda:\n"
         "1. Analisis pesan pengguna dengan mempertimbangkan riwayat percakapan & Konteks Rujukan Second Brain di atas.\n"
         "2. Klasifikasikan intent secara akurat:\n"
@@ -86,7 +102,7 @@ async def supervisor_reason_node(user_prompt: str, user_id: int, retrieved_conte
         "{\n"
         '  "intent": "CHAT", "BRAINSTORMING", "SAVE_NOTE", "TASK", atau "RESEARCH",\n'
         '  "chat_response": "Jawaban ramah, alami, & informatif jika CHAT/BRAINSTORMING/SAVE_NOTE (kosongkan jika TASK/RESEARCH)",\n'
-        '  "claude_instruction": "Instruksi teknis presisi untuk Claude Code jika TASK/RESEARCH, kosongkan jika CHAT/BRAINSTORMING/SAVE_NOTE",\n'
+        '  "claude_instruction": "Instruksi teknis presisi LENGKAP & MANDIRI untuk Claude Code jika TASK/RESEARCH (WAJIB mengandung URL repo, .env, target path jika ada), kosongkan jika CHAT/BRAINSTORMING/SAVE_NOTE",\n'
         '  "note_title": "Judul singkat & deskriptif jika intent SAVE_NOTE, kosongkan jika tidak",\n'
         '  "note_content": "Isi catatan ide autentik & alami dari pengguna jika intent SAVE_NOTE, kosongkan jika tidak"\n'
         "}"
